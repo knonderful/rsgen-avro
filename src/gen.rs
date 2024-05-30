@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::prelude::*;
 
@@ -88,6 +88,7 @@ impl Generator {
     fn gen_in_order(&self, deps: &mut Vec<Schema>, output: &mut impl Write) -> Result<()> {
         let mut gs = GenState::new(deps)?.with_chrono_dates(self.templater.use_chrono_dates);
 
+        let mut type_names = HashSet::new();
         while let Some(s) = deps.pop() {
             match s {
                 // Simply generate code
@@ -121,8 +122,12 @@ impl Generator {
                     if (union.is_nullable() && union.variants().len() > 2)
                         || (!union.is_nullable() && !union.variants().is_empty())
                     {
-                        let code = &self.templater.str_union_enum(&s, &gs)?;
-                        output.write_all(code.as_bytes())?
+                        let (type_name, code) = self.templater.str_union_enum(&s, &gs)?;
+                        // Avoid generating identical unions twice
+                        if type_names.insert(type_name)
+                        {
+                            output.write_all(code.as_bytes())?
+                        }
                     }
 
                     // Register inner union for it to be used as a nested type later

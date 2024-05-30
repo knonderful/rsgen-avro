@@ -721,7 +721,7 @@ impl Templater {
         }
     }
 
-    pub fn str_union_enum(&self, schema: &Schema, gen_state: &GenState) -> Result<String> {
+    pub fn str_union_enum(&self, schema: &Schema, gen_state: &GenState) -> Result<(String, String)> {
         if let Schema::Union(union) = schema {
             let variants = union.variants();
 
@@ -868,7 +868,7 @@ impl Templater {
             ctx.insert("use_avro_rs_unions", &self.use_avro_rs_unions);
             ctx.insert("is_eq_derivable", &gen_state.is_eq_derivable(schema));
 
-            Ok(self.tera.render(UNION_TERA, &ctx)?)
+            Ok((e_name, self.tera.render(UNION_TERA, &ctx)?))
         } else {
             err!("Requires Schema::Union, found {:?}", schema)?
         }

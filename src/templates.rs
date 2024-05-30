@@ -1168,16 +1168,23 @@ impl Templater {
         gen_state: &GenState,
         default: &Value,
     ) -> Result<String> {
-        if union.is_nullable() {
+        let default_variant = &union.variants()[0];
+        if matches!(default_variant, &Schema::Null) {
             let default_str = match default {
                 Value::Null => "None".into(),
                 _ => err!("Invalid optional union default: {:?}", default)?,
             };
-            Ok(default_str)
+            return Ok(default_str);
+        }
+
+        let default_str = self.parse_default(default_variant, gen_state, default)?;
+        if union.is_nullable()
+        {
+            Ok(format!("Some({})", default_str))
         } else {
             let e_name = union_type(union, gen_state, false)?;
-            let e_variant = union_enum_variant(&union.variants()[0], gen_state)?;
-            let default_str = self.parse_default(&union.variants()[0], gen_state, default)?;
+            let e_variant = union_enum_variant(default_variant, gen_state)?;
+            let default_str = self.parse_default(default_variant, gen_state, default)?;
             Ok(format!("{}::{}({})", e_name, e_variant, default_str))
         }
     }
@@ -1386,7 +1393,8 @@ pub(crate) fn union_type(
     }
 
     if union.is_nullable() && variants.len() == 2 {
-        return option_type(&variants[1], gen_state);
+        let var = variants.iter().find(|variant| !matches!(*variant, &Schema::Null)).unwrap();
+        return option_type(var, gen_state);
     }
 
     let schemas = if variants[0] == Schema::Null {
